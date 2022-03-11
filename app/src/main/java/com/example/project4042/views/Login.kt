@@ -1,8 +1,10 @@
 package com.example.project4042
 
+import android.annotation.SuppressLint
+import android.app.Activity.RESULT_OK
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.OutlinedButton
@@ -11,40 +13,43 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.project4042.viewModel.LoginScreenViewModel
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
+import com.firebase.ui.auth.AuthUI
+import com.firebase.ui.auth.FirebaseAuthUIActivityResultContract
+import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
 
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+
+
+@SuppressLint("RestrictedApi")
 @Composable
-fun LoginWithGoogle(navController: NavController,viewModel:LoginScreenViewModel = viewModel()){
+fun LoginWithGoogle(navController: NavController){
 
     val context = LocalContext.current
 
+    //Authorization************************
+//    var userAuth = AuthUI.getInstance()
+//    var user = userAuth.auth.currentUser
+//
+//    if(user!==null){
+//        navController.navigate("Homepage")
+//    }
+    //***************************************
 
+    FirebaseApp.initializeApp(context)
     // Equivalent of onActivityResult
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
-        Log.d("Eorr---","1");
-        val task = GoogleSignIn.getSignedInAccountFromIntent(it.data)
-        try {
-            val account = task.getResult(ApiException::class.java)!!
-            val credential = GoogleAuthProvider.getCredential(account.idToken!!, null)
-
-            viewModel.signWithCredential(credential,context)
-
-        } catch (e: ApiException) {
-            Log.w("TAG", "Google sign in failed", e)
-        }
+    val launcher = rememberLauncherForActivityResult(contract = FirebaseAuthUIActivityResultContract()) {
+        res -> onSignInResult(res,navController)
     }
 
+    // Choose authentication providers
+    val providers = arrayListOf(
+        AuthUI.IdpConfig.GoogleBuilder().build()
+    )
 
         Column(
             modifier = Modifier
@@ -54,26 +59,42 @@ fun LoginWithGoogle(navController: NavController,viewModel:LoginScreenViewModel 
 
         ) {
 
-            val token = stringResource(R.string.default_web_client_id)
-
             OutlinedButton(
                 border = ButtonDefaults.outlinedBorder.copy(width = 1.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(150.dp)
                     .height(50.dp),
                 onClick = {
-                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                        .requestIdToken(token)
-                        .requestEmail()
-                        .build()
 
-                    val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                    launcher.launch(googleSignInClient.signInIntent)
+                    // Create and launch sign-in intent
+                    val signInIntent = AuthUI.getInstance()
+                        .createSignInIntentBuilder()
+                        .setAvailableProviders(providers)
+                        .build()
+                    launcher.launch(signInIntent)
+
                 },
             ){
-                Text("Login with Google")
+                Text("Login As Parent")
             }
         }
+}
+
+fun onSignInResult(result: FirebaseAuthUIAuthenticationResult?,navController: NavController) {
+
+    //Successfully login
+
+    val response = result?.idpResponse
+    if (result?.resultCode == RESULT_OK) {
+        // Successfully signed in
+        val user = FirebaseAuth.getInstance().currentUser
+        navController.navigate("homepage");
+    } else {
+
+    // Sign in failed. If response is null the user canceled the
+        // sign-in flow using the back button. Otherwise check
+        // response.getError().getErrorCode() and handle the error.
+    }
 }
 
 @Composable
